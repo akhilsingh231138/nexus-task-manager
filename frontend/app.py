@@ -1,7 +1,6 @@
 import os
 import streamlit as st
-import requests
-
+import requests 
 API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 
 st.set_page_config(page_title="NEXUS Access", layout="centered")
@@ -19,6 +18,7 @@ def apply_cyber_css():
 
 apply_cyber_css()
 
+# Initialize session state for the user's "keycard"
 if "token" not in st.session_state:
     st.session_state["token"] = None
 
@@ -36,24 +36,29 @@ else:
     with tab1:
         email = st.text_input("EMAIL IDENTIFIER", key="log_email")
         pwd = st.text_input("ACCESS CODES", type="password", key="log_pass")
+        
         if st.button("UPLINK // LOGIN"):
             res = requests.post(f"{API_URL}/login", json={"email": email, "password": pwd})
+            
             if res.status_code == 200:
                 data = res.json()
+                # Save the token securely in Streamlit's memory
                 st.session_state["token"] = data["access_token"]
                 st.session_state["role"] = data["role"]
                 st.session_state["email"] = email
                 st.rerun()
             else:
-                st.error("ACCESS DENIED.")
+                st.error("ACCESS DENIED. Invalid credentials.")
                 
     with tab2:
         s_name = st.text_input("DESIGNATION (NAME)")
         s_email = st.text_input("EMAIL IDENTIFIER", key="sig_email")
         s_pwd = st.text_input("ENCRYPTION KEY", type="password", key="sig_pass")
+        
         if st.button("REGISTER"):
             res = requests.post(f"{API_URL}/signup", json={"name": s_name, "email": s_email, "password": s_pwd})
+            
             if res.status_code == 200:
-                st.success("ENTITY REGISTERED. Proceed to Login.")
+                st.success("ENTITY REGISTERED. Proceed to Login tab.")
             else:
-                st.error(res.json().get("detail"))
+                st.error(res.json().get("detail", "Registration Failed."))
