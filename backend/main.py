@@ -104,7 +104,11 @@ def add_member(project_id: int, member: MemberAdd, user: dict = Depends(verify_t
 
 @app.post("/patients")
 def save_patient(record: PatientRecordCreate, user: dict = Depends(verify_token), db: Session = Depends(get_db)):
-    new_record = models.PatientRecord(record_id=f"PT-{str(uuid.uuid4())[:8].upper()}", **record.dict())
+    # SECURE: Force the recorded_by field to be the logged-in user's email
+    record_data = record.dict()
+    record_data["recorded_by"] = user["sub"]
+    
+    new_record = models.PatientRecord(record_id=f"PT-{str(uuid.uuid4())[:8].upper()}", **record_data)
     db.add(new_record)
     db.commit()
     db.refresh(new_record)
@@ -112,7 +116,9 @@ def save_patient(record: PatientRecordCreate, user: dict = Depends(verify_token)
 
 @app.get("/patients")
 def get_patients(name: str = None, risk: str = "All", user: dict = Depends(verify_token), db: Session = Depends(get_db)):
-    query = db.query(models.PatientRecord)
+    # SECURE: Filter the query immediately so it ONLY pulls records for the logged-in user
+    query = db.query(models.PatientRecord).filter(models.PatientRecord.recorded_by == user["sub"])
+    
     if name:
         query = query.filter(models.PatientRecord.patient_name.ilike(f"%{name}%"))
     if risk != "All":
@@ -134,6 +140,7 @@ class TaskCreate(BaseModel):
     priority: str
     assigned_to: str
     status: str = "To Do" 
+
 @app.post("/tasks")
 def create_task(task: TaskCreate, user: dict = Depends(verify_token), db: Session = Depends(get_db)):
     if user.get("role") != "Admin":
